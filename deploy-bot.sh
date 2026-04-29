@@ -6,6 +6,7 @@ set -e
 IMAGE_NAME="makham-assistant:latest"
 IMAGE_FILE="/Christ-web/makham-assistant.tar"
 CONTAINER_NAME="makham-assistant"
+ENV_FILE="/Christ-web/makham-assistant/.env"
 
 # Colors
 RED='\033[0;31m'
@@ -25,6 +26,13 @@ if [ ! -f "$IMAGE_FILE" ]; then
     exit 1
 fi
 
+# Check if .env exists
+if [ ! -f "$ENV_FILE" ]; then
+    echo -e "${RED}Error: $ENV_FILE not found!${NC}"
+    echo "Please create $ENV_FILE with your credentials"
+    exit 1
+fi
+
 # Stop and remove existing container
 echo -e "${YELLOW}[1/4] Stopping existing container...${NC}"
 docker stop $CONTAINER_NAME 2>/dev/null || true
@@ -34,18 +42,13 @@ docker rm $CONTAINER_NAME 2>/dev/null || true
 echo -e "${YELLOW}[2/4] Loading Docker image...${NC}"
 docker load -i $IMAGE_FILE
 
-# Run container
+# Run container with env file
 echo -e "${YELLOW}[3/4] Starting container...${NC}"
 docker run -d \
   --name $CONTAINER_NAME \
   --restart unless-stopped \
+  --env-file $ENV_FILE \
   -v /var/run/docker.sock:/var/run/docker.sock \
-  -e TELEGRAM_BOT_TOKEN=8619384368:AAEUv1Z8vktGn_DBJwZ6_M14I6X6IF_Qn-w \
-  -e MINIMAX_API_KEY=sk-cp-0isz8kH3b1mlGIw4qX6gn1Bl4_vhlafHfLGaos2r6ElA9TfYZbJV_WBd7eCeB-iRvn6FRwScoitoHTO9CX-8t4GQp0HnvpZl534kjTWkvjioLVYD_puBk0A \
-  -e MINIMAX_BASE_URL=https://api.minimax.chat/v1 \
-  -e ALLOWED_USER_IDS=7506269784 \
-  -e PROJECT_PATH=/Christ-web \
-  -e DOCKER_COMPOSE_FILE=docker-compose-prod.yml \
   $IMAGE_NAME
 
 # Show status
