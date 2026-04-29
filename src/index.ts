@@ -18,12 +18,21 @@ const executor = new CommandExecutor();
 const COMMAND_DESCRIPTIONS = `
 **Available Commands:**
 
+📋 *list* - แสดง services ทั้งหมด
+🐳 *containers* - แสดง containers ที่รันอยู่
 🔄 *deploy* - โหลด images และ deploy ทั้งหมด
 📊 *status* - ดูสถานะ services
-📜 *logs* - ดู logs ของ services
+📜 *logs* [service] - ดู logs ของ services
 🛑 *stop* - หยุด services
 ▶️ *start* - รัน services
 🔁 *restart* - restart services
+
+**Service Management:**
+🔍 *ps* - ดู containers ทั้งหมด
+🔄 *restart [container]* - restart container เฉพาะ
+🛑 *stop [container]* - หยุด container เฉพาะ
+▶️ *start [container]* - รัน container เฉพาะ
+📜 *[container] logs* - ดู logs container เฉพาะ
 
 💡 พิมพ์คำสั่งเป็นภาษาก็ได้ เช่น "deploy หน่อย" หรือ "ดู status"
 `;
@@ -62,6 +71,18 @@ async function handleUpdate(update: TelegramUpdate): Promise<void> {
         } else if (pendingCommand === 'restart') {
           const result = await executor.restart();
           await telegram.sendMarkdown(chatId, executor.formatResult(result));
+        } else if (pendingCommand.startsWith('restart ')) {
+          const service = pendingCommand.replace('restart ', '');
+          const result = await executor.restartService(service);
+          await telegram.sendMarkdown(chatId, executor.formatResult(result));
+        } else if (pendingCommand.startsWith('stop ')) {
+          const service = pendingCommand.replace('stop ', '');
+          const result = await executor.stopService(service);
+          await telegram.sendMarkdown(chatId, executor.formatResult(result));
+        } else if (pendingCommand.startsWith('start ')) {
+          const service = pendingCommand.replace('start ', '');
+          const result = await executor.startService(service);
+          await telegram.sendMarkdown(chatId, executor.formatResult(result));
         } else {
           await telegram.sendMarkdown(chatId, `❌ Unknown pending command`);
         }
@@ -78,6 +99,9 @@ async function handleUpdate(update: TelegramUpdate): Promise<void> {
 
   // Check for exact commands first
   const command = text.toLowerCase();
+  const parts = command.split(/\s+/);
+  const mainCmd = parts[0];
+  const args = parts.slice(1);
 
   if (command === '/start' || command === '/help') {
     await telegram.sendMarkdown(chatId, `
@@ -90,39 +114,105 @@ ${COMMAND_DESCRIPTIONS}
     return;
   }
 
-  if (command === 'status') {
+  // List services in project
+  if (mainCmd === 'list') {
+    const result = await executor.listServices();
+    await telegram.sendMarkdown(chatId, executor.formatResult(result));
+    return;
+  }
+
+  // List all containers
+  if (mainCmd === 'containers' || mainCmd === 'ps') {
+    const result = await executor.listAllContainers();
+    await telegram.sendMarkdown(chatId, executor.formatResult(result));
+    return;
+  }
+
+  // Status
+  if (mainCmd === 'status') {
     const result = await executor.status();
     await telegram.sendMarkdown(chatId, executor.formatResult(result));
     return;
   }
 
-  if (command === 'logs') {
-    const result = await executor.logs();
+  // Logs (all or specific service)
+  if (mainCmd === 'logs') {
+    const result = await executor.logs(args[0]);
     await telegram.sendMarkdown(chatId, executor.formatResult(result));
     return;
   }
 
-  if (command === 'stop') {
+  // All logs with more lines
+  if (mainCmd === 'alllogs') {
+    const result = await executor.allLogs(args[0]);
+    await telegram.sendMarkdown(chatId, executor.formatResult(result));
+    return;
+  }
+
+  // Service-specific logs (e.g., "api logs", "web logs")
+  if (args[0] === 'logs' && args.length >= 2) {
+    const service = args[1];
+    const result = await executor.serviceLogs(service);
+    await telegram.sendMarkdown(chatId, executor.formatResult(result));
+    return;
+  }
+
+  // Restart specific container
+  if (mainCmd === 'restart' && args.length === 1) {
+    const service = args[0];
+    executor.storePendingCommand(userId, `restart ${service}`);
+    await telegram.sendMarkdown(chatId, `⚠️ ยืนยันการ restart *${service}*?\n\nพิมพ์ *yes* เพื่อยืนยัน หรือ *no* เพื่อยกเลิก`);
+    return;
+  }
+
+  // Stop specific container
+  if (mainCmd === 'stop' && args.length === 1) {
+    const service = args[0];
+    executor.storePendingCommand(userId, `stop ${service}`);
+    await telegram.sendMarkdown(chatId, `⚠️ ยืนยันการ stop *${service}*?\n\nพิมพ์ *yes* เพื่อยืนยัน หรือ *no* เพื่อยกเลิก`);
+    return;
+  }
+
+  // Start specific container
+  if (mainCmd === 'start' && args.length === 1) {
+    const service = args[0];
+    executor.storePendingCommand(userId, `start ${service}`);
+    await telegram.sendMarkdown(chatId, `⚠️ ยืนยันการ start *${service}*?\n\nพิมพ์ *yes* เพื่อยืนยัน หรือ *no* เพื่อยกเลิก`);
+    return;
+  }
+
+  // Full command: container name + logs
+  if (['api', 'web', 'db', 'pgadmin', 'portainer'].includes(mainCmd) && args[0] === 'logs') {
+    const result = await executor.serviceLogs(mainCmd);
+    await telegram.sendMarkdown(chatId, executor.formatResult(result));
+    return;
+  }
+
+  // Deploy
+  if (mainCmd === 'deploy') {
+    executor.storePendingCommand(userId, 'deploy');
+    await telegram.sendMarkdown(chatId, `⚠️ ยืนยันการ deploy?\n\nจะรัน:\n1. docker load -i charcrith-api.tar\n2. docker load -i charcrith-web.tar\n3. docker compose down\n4. docker compose up -d\n\nพิมพ์ *yes* เพื่อยืนยัน หรือ *no* เพื่อยกเลิก`);
+    return;
+  }
+
+  // Stop all
+  if (mainCmd === 'stop') {
     executor.storePendingCommand(userId, 'stop');
     await telegram.sendMarkdown(chatId, `⚠️ ยืนยันการ stop services?\n\nพิมพ์ *yes* เพื่อยืนยัน หรือ *no* เพื่อยกเลิก`);
     return;
   }
 
-  if (command === 'start') {
+  // Start all
+  if (mainCmd === 'start') {
     executor.storePendingCommand(userId, 'start');
     await telegram.sendMarkdown(chatId, `⚠️ ยืนยันการ start services?\n\nพิมพ์ *yes* เพื่อยืนยัน หรือ *no* เพื่อยกเลิก`);
     return;
   }
 
-  if (command === 'restart') {
+  // Restart all
+  if (mainCmd === 'restart') {
     executor.storePendingCommand(userId, 'restart');
     await telegram.sendMarkdown(chatId, `⚠️ ยืนยันการ restart services?\n\nพิมพ์ *yes* เพื่อยืนยัน หรือ *no* เพื่อยกเลิก`);
-    return;
-  }
-
-  if (command === 'deploy') {
-    executor.storePendingCommand(userId, 'deploy');
-    await telegram.sendMarkdown(chatId, `⚠️ ยืนยันการ deploy?\n\nจะรัน:\n1. docker load -i charcrith-api.tar\n2. docker load -i charcrith-web.tar\n3. docker compose down\n4. docker compose up -d\n\nพิมพ์ *yes* เพื่อยืนยัน หรือ *no* เพื่อยกเลิก`);
     return;
   }
 
@@ -207,7 +297,7 @@ async function main(): Promise<void> {
       }
     } catch (error) {
       console.error('[Polling Error]', error);
-      await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds before retrying
+      await new Promise(resolve => setTimeout(resolve, 5000));
     }
   }
 }

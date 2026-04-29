@@ -13,8 +13,8 @@ export class CommandExecutor {
   async execute(command: string): Promise<CommandResult> {
     try {
       const { stdout, stderr } = await execAsync(command, {
-        timeout: 300000, // 5 minutes timeout
-        maxBuffer: 10 * 1024 * 1024, // 10MB buffer
+        timeout: 300000,
+        maxBuffer: 10 * 1024 * 1024,
       });
 
       return {
@@ -31,6 +31,26 @@ export class CommandExecutor {
         command,
       };
     }
+  }
+
+  async listServices(): Promise<CommandResult> {
+    const result = await this.execute(`docker compose -f ${PROJECT_PATH}/${DOCKER_COMPOSE_FILE} ps --format "table {{.Name}}\\t{{.Status}}\\t{{.Ports}}"`);
+    return {
+      ...result,
+      output: result.success
+        ? `📋 **Services in /Christ-web**\n\n\`\`\`\n${result.output}\n\`\`\``
+        : result.output,
+    };
+  }
+
+  async listAllContainers(): Promise<CommandResult> {
+    const result = await this.execute(`docker ps --format "table {{.Names}}\\t{{.Image}}\\t{{.Status}}\\t{{.Ports}}"`);
+    return {
+      ...result,
+      output: result.success
+        ? `🐳 **All Running Containers**\n\n\`\`\`\n${result.output}\n\`\`\``
+        : result.output,
+    };
   }
 
   async deploy(): Promise<CommandResult> {
@@ -74,7 +94,24 @@ export class CommandExecutor {
     const cmd = service
       ? `docker compose -f ${PROJECT_PATH}/${DOCKER_COMPOSE_FILE} logs ${service} --tail=30`
       : `docker compose -f ${PROJECT_PATH}/${DOCKER_COMPOSE_FILE} logs --tail=30`;
-    return this.execute(cmd);
+    const result = await this.execute(cmd);
+    return {
+      ...result,
+      output: result.success
+        ? `📜 **Logs${service ? ` - ${service}` : ''}**\n\n\`\`\`\n${result.output}\n\`\`\``
+        : result.output,
+    };
+  }
+
+  async allLogs(service?: string): Promise<CommandResult> {
+    const cmd = `docker compose -f ${PROJECT_PATH}/${DOCKER_COMPOSE_FILE} logs${service ? ` ${service}` : ''} --tail=100`;
+    const result = await this.execute(cmd);
+    return {
+      ...result,
+      output: result.success
+        ? `📜 **Full Logs${service ? ` - ${service}` : ''}**\n\n\`\`\`\n${result.output}\n\`\`\``
+        : result.output,
+    };
   }
 
   async stop(): Promise<CommandResult> {
@@ -101,6 +138,40 @@ export class CommandExecutor {
     };
   }
 
+  async restartService(service: string): Promise<CommandResult> {
+    const result = await this.execute(`docker restart ${service}`);
+    return {
+      ...result,
+      output: result.success ? `🔁 **${service} Restarted**` : result.output,
+    };
+  }
+
+  async stopService(service: string): Promise<CommandResult> {
+    const result = await this.execute(`docker stop ${service}`);
+    return {
+      ...result,
+      output: result.success ? `🛑 **${service} Stopped**` : result.output,
+    };
+  }
+
+  async startService(service: string): Promise<CommandResult> {
+    const result = await this.execute(`docker start ${service}`);
+    return {
+      ...result,
+      output: result.success ? `▶️ **${service} Started**` : result.output,
+    };
+  }
+
+  async serviceLogs(service: string): Promise<CommandResult> {
+    const result = await this.execute(`docker logs ${service} --tail=50`);
+    return {
+      ...result,
+      output: result.success
+        ? `📜 **Logs - ${service}**\n\n\`\`\`\n${result.output}\n\`\`\``
+        : result.output,
+    };
+  }
+
   storePendingCommand(userId: string, command: string): void {
     this.pendingCommands.set(userId, {
       command,
@@ -112,7 +183,6 @@ export class CommandExecutor {
     const pending = this.pendingCommands.get(userId);
     if (!pending) return null;
 
-    // Expire after 5 minutes
     if (Date.now() - pending.timestamp > 5 * 60 * 1000) {
       this.pendingCommands.delete(userId);
       return null;
@@ -127,8 +197,7 @@ export class CommandExecutor {
 
   formatResult(result: CommandResult): string {
     if (result.success) {
-      // If output already has formatting (from deploy), use it directly
-      if (result.output.includes('📦') || result.output.includes('▶️') || result.output.includes('🔁') || result.output.includes('🛑')) {
+      if (result.output.includes('📦') || result.output.includes('▶️') || result.output.includes('🔁') || result.output.includes('🛑') || result.output.includes('📋') || result.output.includes('🐳') || result.output.includes('📜')) {
         return result.output;
       }
       return `✅ **Success**\n\`\`\`\n${result.output}\n\`\`\``;
