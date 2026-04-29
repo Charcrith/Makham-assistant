@@ -6,6 +6,7 @@ const execAsync = promisify(exec);
 
 const PROJECT_PATH = process.env.PROJECT_PATH || '/Christ-web';
 const DOCKER_COMPOSE_FILE = process.env.DOCKER_COMPOSE_FILE || 'docker-compose-prod.yml';
+const COMPOSE_COMMAND = 'docker-compose';
 
 export class CommandExecutor {
   private pendingCommands: Map<string, { command: string; timestamp: number }> = new Map();
@@ -34,7 +35,7 @@ export class CommandExecutor {
   }
 
   async listServices(): Promise<CommandResult> {
-    const result = await this.execute(`docker compose -f ${PROJECT_PATH}/${DOCKER_COMPOSE_FILE} ps --format "table {{.Name}}\\t{{.Status}}\\t{{.Ports}}"`);
+    const result = await this.execute(`${COMPOSE_COMMAND} -f ${PROJECT_PATH}/${DOCKER_COMPOSE_FILE} ps`);
     return {
       ...result,
       output: result.success
@@ -44,7 +45,7 @@ export class CommandExecutor {
   }
 
   async listAllContainers(): Promise<CommandResult> {
-    const result = await this.execute(`docker ps --format "table {{.Names}}\\t{{.Image}}\\t{{.Status}}\\t{{.Ports}}"`);
+    const result = await this.execute('docker ps --format "table {{.Names}}\\t{{.Image}}\\t{{.Status}}"');
     return {
       ...result,
       output: result.success
@@ -57,8 +58,8 @@ export class CommandExecutor {
     const commands = [
       { cmd: `docker load -i ${PROJECT_PATH}/charcrith-api.tar`, name: 'Loading API image' },
       { cmd: `docker load -i ${PROJECT_PATH}/charcrith-web.tar`, name: 'Loading Web image' },
-      { cmd: `docker compose -f ${PROJECT_PATH}/${DOCKER_COMPOSE_FILE} down`, name: 'Stopping services' },
-      { cmd: `docker compose -f ${PROJECT_PATH}/${DOCKER_COMPOSE_FILE} up -d`, name: 'Starting services' },
+      { cmd: `${COMPOSE_COMMAND} -f ${PROJECT_PATH}/${DOCKER_COMPOSE_FILE} down`, name: 'Stopping services' },
+      { cmd: `${COMPOSE_COMMAND} -f ${PROJECT_PATH}/${DOCKER_COMPOSE_FILE} up -d`, name: 'Starting services' },
     ];
 
     let fullOutput = '📦 **Deploy Progress**\n\n';
@@ -87,13 +88,13 @@ export class CommandExecutor {
   }
 
   async status(): Promise<CommandResult> {
-    return this.execute(`docker compose -f ${PROJECT_PATH}/${DOCKER_COMPOSE_FILE} ps`);
+    return this.execute(`${COMPOSE_COMMAND} -f ${PROJECT_PATH}/${DOCKER_COMPOSE_FILE} ps`);
   }
 
   async logs(service?: string): Promise<CommandResult> {
     const cmd = service
-      ? `docker compose -f ${PROJECT_PATH}/${DOCKER_COMPOSE_FILE} logs ${service} --tail=30`
-      : `docker compose -f ${PROJECT_PATH}/${DOCKER_COMPOSE_FILE} logs --tail=30`;
+      ? `${COMPOSE_COMMAND} -f ${PROJECT_PATH}/${DOCKER_COMPOSE_FILE} logs ${service} --tail=30`
+      : `${COMPOSE_COMMAND} -f ${PROJECT_PATH}/${DOCKER_COMPOSE_FILE} logs --tail=30`;
     const result = await this.execute(cmd);
     return {
       ...result,
@@ -104,7 +105,7 @@ export class CommandExecutor {
   }
 
   async allLogs(service?: string): Promise<CommandResult> {
-    const cmd = `docker compose -f ${PROJECT_PATH}/${DOCKER_COMPOSE_FILE} logs${service ? ` ${service}` : ''} --tail=100`;
+    const cmd = `${COMPOSE_COMMAND} -f ${PROJECT_PATH}/${DOCKER_COMPOSE_FILE} logs${service ? ` ${service}` : ''} --tail=100`;
     const result = await this.execute(cmd);
     return {
       ...result,
@@ -115,7 +116,7 @@ export class CommandExecutor {
   }
 
   async stop(): Promise<CommandResult> {
-    const result = await this.execute(`docker compose -f ${PROJECT_PATH}/${DOCKER_COMPOSE_FILE} down`);
+    const result = await this.execute(`${COMPOSE_COMMAND} -f ${PROJECT_PATH}/${DOCKER_COMPOSE_FILE} down`);
     return {
       ...result,
       output: result.success ? '🛑 **Services Stopped**' : result.output,
@@ -123,7 +124,7 @@ export class CommandExecutor {
   }
 
   async start(): Promise<CommandResult> {
-    const result = await this.execute(`docker compose -f ${PROJECT_PATH}/${DOCKER_COMPOSE_FILE} up -d`);
+    const result = await this.execute(`${COMPOSE_COMMAND} -f ${PROJECT_PATH}/${DOCKER_COMPOSE_FILE} up -d`);
     return {
       ...result,
       output: result.success ? '▶️ **Services Started**' : result.output,
@@ -131,7 +132,7 @@ export class CommandExecutor {
   }
 
   async restart(): Promise<CommandResult> {
-    const result = await this.execute(`docker compose -f ${PROJECT_PATH}/${DOCKER_COMPOSE_FILE} restart`);
+    const result = await this.execute(`${COMPOSE_COMMAND} -f ${PROJECT_PATH}/${DOCKER_COMPOSE_FILE} restart`);
     return {
       ...result,
       output: result.success ? '🔁 **Services Restarted**' : result.output,
