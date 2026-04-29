@@ -19,7 +19,7 @@ export class CommandExecutor {
 
       return {
         success: true,
-        output: stdout || 'Command executed successfully',
+        output: stdout || 'Done!',
         command,
       };
     } catch (error: unknown) {
@@ -35,28 +35,29 @@ export class CommandExecutor {
 
   async deploy(): Promise<CommandResult> {
     const commands = [
-      `docker load -i ${PROJECT_PATH}/charcrith-api.tar`,
-      `docker load -i ${PROJECT_PATH}/charcrith-web.tar`,
-      `docker compose -f ${PROJECT_PATH}/${DOCKER_COMPOSE_FILE} down`,
-      `docker compose -f ${PROJECT_PATH}/${DOCKER_COMPOSE_FILE} up -d`,
+      { cmd: `docker load -i ${PROJECT_PATH}/charcrith-api.tar`, name: 'Loading API image' },
+      { cmd: `docker load -i ${PROJECT_PATH}/charcrith-web.tar`, name: 'Loading Web image' },
+      { cmd: `docker compose -f ${PROJECT_PATH}/${DOCKER_COMPOSE_FILE} down`, name: 'Stopping services' },
+      { cmd: `docker compose -f ${PROJECT_PATH}/${DOCKER_COMPOSE_FILE} up -d`, name: 'Starting services' },
     ];
 
-    let fullOutput = '';
-    for (const cmd of commands) {
-      const result = await this.execute(cmd);
-      fullOutput += `\n$ ${cmd}\n`;
-      fullOutput += result.success ? result.output : `Error: ${result.error}`;
-      fullOutput += '\n';
-
-      if (!result.success) {
+    let fullOutput = '📦 **Deploy Progress**\n\n';
+    for (const item of commands) {
+      const result = await this.execute(item.cmd);
+      fullOutput += `${result.success ? '✅' : '❌'} ${item.name}\n`;
+      if (result.success && result.output) {
+        fullOutput += `\`\`\`${result.output.slice(0, 200)}\`\`\`\n`;
+      } else if (!result.success) {
+        fullOutput += `\`\`\`${result.error}\`\`\`\n`;
         return {
           success: false,
           output: fullOutput,
-          error: `Command failed: ${cmd}`,
-          command: cmd,
+          error: `Failed at: ${item.name}`,
+          command: 'deploy',
         };
       }
     }
+    fullOutput += '\n🎉 **Deploy Complete!**';
 
     return {
       success: true,
@@ -71,21 +72,33 @@ export class CommandExecutor {
 
   async logs(service?: string): Promise<CommandResult> {
     const cmd = service
-      ? `docker compose -f ${PROJECT_PATH}/${DOCKER_COMPOSE_FILE} logs ${service}`
-      : `docker compose -f ${PROJECT_PATH}/${DOCKER_COMPOSE_FILE} logs --tail=50`;
+      ? `docker compose -f ${PROJECT_PATH}/${DOCKER_COMPOSE_FILE} logs ${service} --tail=30`
+      : `docker compose -f ${PROJECT_PATH}/${DOCKER_COMPOSE_FILE} logs --tail=30`;
     return this.execute(cmd);
   }
 
   async stop(): Promise<CommandResult> {
-    return this.execute(`docker compose -f ${PROJECT_PATH}/${DOCKER_COMPOSE_FILE} down`);
+    const result = await this.execute(`docker compose -f ${PROJECT_PATH}/${DOCKER_COMPOSE_FILE} down`);
+    return {
+      ...result,
+      output: result.success ? '🛑 **Services Stopped**' : result.output,
+    };
   }
 
   async start(): Promise<CommandResult> {
-    return this.execute(`docker compose -f ${PROJECT_PATH}/${DOCKER_COMPOSE_FILE} up -d`);
+    const result = await this.execute(`docker compose -f ${PROJECT_PATH}/${DOCKER_COMPOSE_FILE} up -d`);
+    return {
+      ...result,
+      output: result.success ? '▶️ **Services Started**' : result.output,
+    };
   }
 
   async restart(): Promise<CommandResult> {
-    return this.execute(`docker compose -f ${PROJECT_PATH}/${DOCKER_COMPOSE_FILE} restart`);
+    const result = await this.execute(`docker compose -f ${PROJECT_PATH}/${DOCKER_COMPOSE_FILE} restart`);
+    return {
+      ...result,
+      output: result.success ? '🔁 **Services Restarted**' : result.output,
+    };
   }
 
   storePendingCommand(userId: string, command: string): void {
@@ -114,6 +127,10 @@ export class CommandExecutor {
 
   formatResult(result: CommandResult): string {
     if (result.success) {
+      // If output already has formatting (from deploy), use it directly
+      if (result.output.includes('📦') || result.output.includes('▶️') || result.output.includes('🔁') || result.output.includes('🛑')) {
+        return result.output;
+      }
       return `✅ **Success**\n\`\`\`\n${result.output}\n\`\`\``;
     } else {
       return `❌ **Error**\n\`\`\`\n${result.error || result.output}\n\`\`\``;
