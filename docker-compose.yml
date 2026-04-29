@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  makham-assistant:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: makham-assistant
+    restart: unless-stopped
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - MINIMAX_API_KEY=${MINIMAX_API_KEY}
+      - MINIMAX_BASE_URL=${MINIMAX_BASE_URL:-https://api.minimax.chat/v1}
+      - PORT=${PORT:-3000}
+      - ALLOWED_USER_IDS=${ALLOWED_USER_IDS}
+      - PROJECT_PATH=${PROJECT_PATH:-/Christ-web}
+      - DOCKER_COMPOSE_FILE=${DOCKER_COMPOSE_FILE:-docker-compose-prod.yml}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+volumes:
+  makham-assistant-data:
