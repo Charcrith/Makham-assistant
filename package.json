@@ -1,0 +1,28 @@
+{
+  "name": "makham-assistant",
+  "version": "1.0.0",
+  "description": "AI Secretary Bot for VPS management via Telegram",
+  "type": "module",
+  "scripts": {
+    "dev": "bun run src/index.ts",
+    "build": "bun build src/index.ts --outdir dist --target node",
+    "start": "bun run dist/index.js",
+    "pm2:start": "pm2 start src/index.ts --name makham-assistant",
+    "pm2:restart": "pm2 restart makham-assistant",
+    "pm2:stop": "pm2 stop makham-assistant",
+    "pm2:logs": "pm2 logs makham-assistant"
+  },
+  "dependencies": {
+    "elysia": "^1.0.0",
+    "@elysiajs/cors": "^1.0.0",
+    "openai": "^4.0.0",
+    "node-fetch": "^3.3.2",
+    "dotenv": "^16.4.5",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "bun-types": "^1.0.0",
+    "pm2": "^5.3.0",
+    "typescript": "^5.4.0"
+  }
+}
