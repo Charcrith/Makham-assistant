@@ -38,11 +38,11 @@ if errorlevel 1 (
 
 :: Upload
 echo [3/3] Uploading to server...
-echo VPS IP คืออะไรครับ? (กด Enter ถ้าไม่ต้อง upload)
 set /p VPS_IP="VPS IP: "
 
 if not "%VPS_IP%"=="" (
-    scp %IMAGE_FILE% %VPS_USER%@%VPS_IP%:/Christ-web/
+    echo Uploading to %VPS_USER%@%VPS_IP%:/Makham-Assistant/
+    scp %IMAGE_FILE% %VPS_USER%@%VPS_IP%:/Makham-Assistant/
     if errorlevel 1 (
         echo FAILED: Upload failed
         pause
@@ -56,27 +56,17 @@ echo   Build Complete!
 echo ========================================
 echo.
 echo Image file: %IMAGE_FILE%
-echo Size:
-for %%A in (%IMAGE_FILE%) do echo   %%~zA bytes
 echo.
 if not "%VPS_IP%"=="" (
     echo Already uploaded to server!
     echo.
     echo On server, run:
-    echo   cd /Christ-web
+    echo   cd /Makham-Assistant
     echo   ./deploy-bot.sh
 ) else (
     echo Next steps:
     echo   1. Upload to server:
-    echo      scp %IMAGE_FILE% %VPS_USER%@YOUR_VPS_IP:/Christ-web/
-    echo.
-    echo   2. Upload deploy-bot.sh:
-    echo      scp deploy-bot.sh %VPS_USER%@YOUR_VPS_IP:/Christ-web/
-    echo.
-    echo   3. On server, run:
-    echo      cd /Christ-web
-    echo      chmod +x deploy-bot.sh
-    echo      ./deploy-bot.sh
+    echo      scp %IMAGE_FILE% %VPS_USER%@YOUR_VPS_IP:/Makham-Assistant/
 )
 echo.
 pause

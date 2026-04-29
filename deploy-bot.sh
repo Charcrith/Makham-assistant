@@ -4,9 +4,9 @@
 set -e
 
 IMAGE_NAME="makham-assistant:latest"
-IMAGE_FILE="/Christ-web/makham-assistant.tar"
+IMAGE_FILE="/Makham-Assistant/makham-assistant.tar"
 CONTAINER_NAME="makham-assistant"
-ENV_FILE="/Christ-web/makham-assistant/.env"
+ENV_FILE="/Makham-Assistant/.env"
 
 # Colors
 RED='\033[0;31m'
@@ -22,7 +22,7 @@ echo.
 # Check if image file exists
 if [ ! -f "$IMAGE_FILE" ]; then
     echo -e "${RED}Error: $IMAGE_FILE not found!${NC}"
-    echo "Please upload makham-assistant.tar to /Christ-web/ first"
+    echo "Please upload makham-assistant.tar to /Makham-Assistant/ first"
     exit 1
 fi
 
